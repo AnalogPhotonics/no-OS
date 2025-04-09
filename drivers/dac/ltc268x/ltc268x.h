@@ -176,4 +176,7 @@ int32_t ltc268x_init(struct ltc268x_dev **device,
 		     struct ltc268x_init_param init_param);
 int32_t ltc268x_remove(struct ltc268x_dev *dev);
 
+int32_t ltc268x_spi_read(struct ltc268x_dev *dev, uint8_t reg,
+	uint16_t *data);
+
 #endif // __LTC268X_H__

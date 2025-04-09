@@ -77,7 +77,7 @@ static int32_t _ltc268x_spi_write(struct ltc268x_dev *dev, uint8_t reg,
  * @param data - The register data.
  * @return 0 in case of success, negative error code otherwise.
  */
-static int32_t _ltc268x_spi_read(struct ltc268x_dev *dev, uint8_t reg,
+int32_t ltc268x_spi_read(struct ltc268x_dev *dev, uint8_t reg,
 				 uint16_t *data)
 {
 	uint8_t buf[3] = {0, 0, 0};
@@ -110,7 +110,7 @@ static int32_t _ltc268x_spi_update_bits(struct ltc268x_dev *dev, uint8_t reg,
 	uint16_t regval;
 	int32_t ret;
 
-	ret = _ltc268x_spi_read(dev, reg, &regval);
+	ret = ltc268x_spi_read(dev, reg, &regval);
 	if (ret < 0)
 		return ret;
 
@@ -335,7 +335,7 @@ int32_t ltc268x_software_toggle(struct ltc268x_dev *dev, uint8_t channel)
 	if (channel >= dev->num_channels)
 		return -ENOENT;
 
-	ret = _ltc268x_spi_read(dev, LTC268X_CMD_SW_TOGGLE_REG, &regval);
+	ret = ltc268x_spi_read(dev, LTC268X_CMD_SW_TOGGLE_REG, &regval);
 	if (ret < 0)
 		return ret;
 
@@ -372,12 +372,12 @@ int32_t ltc268x_set_voltage(struct ltc268x_dev *dev, uint8_t channel,
 	int32_t range_offset, v_ref, ret;
 
 	/* Get the offset, gain and range of the selected channel. */
-	ret = _ltc268x_spi_read(dev, LTC268X_CMD_CH_OFFSET(channel, dev->dev_id),
+	ret = ltc268x_spi_read(dev, LTC268X_CMD_CH_OFFSET(channel, dev->dev_id),
 				&offset);
 	if (ret < 0)
 		return ret;
 
-	ret = _ltc268x_spi_read(dev, LTC268X_CMD_CH_GAIN(channel, dev->dev_id), &gain);
+	ret = ltc268x_spi_read(dev, LTC268X_CMD_CH_GAIN(channel, dev->dev_id), &gain);
 	if (ret < 0)
 		return ret;
 
