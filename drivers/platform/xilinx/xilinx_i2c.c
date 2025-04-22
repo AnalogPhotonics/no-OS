@@ -408,7 +408,7 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 		if (ret != 0)
 			goto error;
 
-		XIicPs_MasterSend(xdesc->instance,
+		XIicPs_MasterSendPolled(xdesc->instance,
 				  data,
 				  bytes_number,
 				  desc->slave_address);
@@ -476,7 +476,7 @@ int32_t xil_i2c_read(struct no_os_i2c_desc *desc,
 		if (ret != 0)
 			goto error;
 
-		XIicPs_MasterRecv(xdesc->instance,
+		XIicPs_MasterRecvPolled(xdesc->instance,
 				  data,
 				  bytes_number,
 				  desc->slave_address);
