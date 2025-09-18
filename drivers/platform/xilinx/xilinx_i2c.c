@@ -19,7 +19,7 @@
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY ANALOG DEVICES, INC. “AS IS” AND ANY EXPRESS OR
+ * THIS SOFTWARE IS PROVIDED BY ANALOG DEVICES, INC. â€œAS ISâ€� AND ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL ANALOG DEVICES, INC. BE LIABLE FOR ANY DIRECT, INDIRECT,
@@ -408,12 +408,17 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 		if (ret != 0)
 			goto error;
 
-		XIicPs_MasterSendPolled(xdesc->instance,
+		ret = XIicPs_MasterSendPolled(xdesc->instance,
 				  data,
 				  bytes_number,
 				  desc->slave_address);
 		if (ret != 0)
 			goto error;
+
+		if (stop_bit)
+		{
+			while (XIicPs_BusIsBusy(xdesc->instance));
+		}
 
 		break;
 #endif
@@ -476,12 +481,17 @@ int32_t xil_i2c_read(struct no_os_i2c_desc *desc,
 		if (ret != 0)
 			goto error;
 
-		XIicPs_MasterRecvPolled(xdesc->instance,
+		ret = XIicPs_MasterRecvPolled(xdesc->instance,
 				  data,
 				  bytes_number,
 				  desc->slave_address);
 		if (ret != 0)
 			goto error;
+
+		if (stop_bit)
+		{
+			while (XIicPs_BusIsBusy(xdesc->instance));
+		}
 
 		break;
 #endif
