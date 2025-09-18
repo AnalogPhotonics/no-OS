@@ -403,8 +403,15 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 		if (ret != 0)
 			return -1;
 
-		ret = XIicPs_SetOptions(xdesc->instance,
-					stop_bit ? 0 : XIICPS_REP_START_OPTION);
+		if (stop_bit)
+		{
+			ret = XIicPs_ClearOptions(xdesc->instance, XIICPS_REP_START_OPTION);
+		}
+		else
+		{
+			ret = XIicPs_SetOptions(xdesc->instance, XIICPS_REP_START_OPTION);
+		}
+
 		if (ret != 0)
 			goto error;
 
@@ -476,8 +483,15 @@ int32_t xil_i2c_read(struct no_os_i2c_desc *desc,
 		if (ret != 0)
 			return -1;
 
-		ret = XIicPs_SetOptions(xdesc->instance,
-					stop_bit ? 0 : XIICPS_REP_START_OPTION);
+		if (stop_bit)
+		{
+			ret = XIicPs_ClearOptions(xdesc->instance, XIICPS_REP_START_OPTION);
+		}
+		else
+		{
+			ret = XIicPs_SetOptions(xdesc->instance, XIICPS_REP_START_OPTION);
+		}
+		
 		if (ret != 0)
 			goto error;
 
