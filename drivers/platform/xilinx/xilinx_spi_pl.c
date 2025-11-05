@@ -46,7 +46,7 @@
 
 #define XPS_TYPE_WRITE		0x1
 #define XPS_TYPE_READ		0x2
-#define XSP_DEFAULT_SR_VALUE	0x25
+#define XSP_DEFAULT_SR_VALUE	0xA5
 #define XSP_DUMMY_DATA		0xFF
 
 /*
