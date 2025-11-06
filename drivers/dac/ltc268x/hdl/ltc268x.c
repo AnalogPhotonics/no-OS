@@ -208,13 +208,14 @@ int32_t ltc268x_set_span(struct ltc268x_dev *dev,
 			 uint8_t channel, enum ltc268x_voltage_range range)
 {
 	int32_t ret;
+	uint8_t reg; 
 
 	if (channel >= dev->num_channels)
 		return -ENOENT;
 
-	ret = _ltc268x_spi_update_bits(dev, LTC268X_CMD_CH_SETTING(channel,
-				       dev->dev_id),
-				       LTC268X_CH_SPAN_MSK, LTC268X_CH_SPAN(range));
+	reg = 1 | channel;
+	ret = _ltc268x_spi_write(dev, reg, range << 8);
+
 	if (ret < 0)
 		return ret;
 
@@ -376,6 +377,7 @@ int32_t ltc268x_set_voltage(struct ltc268x_dev *dev, uint8_t channel,
 	// uint16_t offset, gain;
 	uint16_t code;
 	int32_t range_offset, v_ref, ret;
+	uint8_t reg; 
 
 	/* Get the offset, gain and range of the selected channel. */
 	// ret = ltc268x_spi_read(dev, LTC268X_CMD_CH_OFFSET(channel, dev->dev_id),
@@ -399,8 +401,8 @@ int32_t ltc268x_set_voltage(struct ltc268x_dev *dev, uint8_t channel,
 	dev->dac_code[channel] = code;
 
 	/* Write to the Data Register of the DAC. */
-	return _ltc268x_spi_write(dev,  LTC268X_CMD_CH_CODE_UPDATE(channel,
-				  dev->dev_id), code);
+	reg = 0x40 | channel;
+	return _ltc268x_spi_write(dev, reg, code);
 }
 
 /**
@@ -442,9 +444,9 @@ int32_t ltc268x_init(struct ltc268x_dev **device,
 
 	for (channel = 0; channel < dev->num_channels; channel++) {
 		/* Setup channel span */
-		ret = ltc268x_set_span(dev, channel, init_param.crt_range[channel]);
-		if (ret < 0)
-			goto error;
+		// ret = ltc268x_set_span(dev, channel, init_param.crt_range[channel]);
+		// if (ret < 0)
+		// 	goto error;
 
 		// /* Set dither phase */
 		// ret = ltc268x_set_dither_phase(dev, channel, init_param.dither_phase[channel]);
