@@ -139,6 +139,7 @@ struct ltc268x_dev {
 	enum ltc268x_dither_period	dither_period[16];
 	enum ltc268x_clk_input		clk_input[16];
 	enum ltc268x_a_b_register	reg_select[16];
+	void *extra; // implementation specific
 };
 
 struct ltc268x_init_param {
@@ -153,6 +154,7 @@ struct ltc268x_init_param {
 	enum ltc268x_dither_period	dither_period[16];
 	enum ltc268x_clk_input		clk_input[16];
 	enum ltc268x_a_b_register	reg_select[16];
+	void *extra; // implementation specific
 };
 int32_t ltc268x_set_pwr_dac(struct ltc268x_dev *dev, uint16_t setting);
 int32_t ltc268x_set_dither_toggle(struct ltc268x_dev *dev, uint16_t setting);
