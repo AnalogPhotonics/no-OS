@@ -213,8 +213,8 @@ int32_t ltc268x_set_span(struct ltc268x_dev *dev,
 	if (channel >= dev->num_channels)
 		return -ENOENT;
 
-	reg = 1 | channel;
-	ret = _ltc268x_spi_write(dev, reg, range << 8);
+	reg = (1U << 4) | channel;
+	ret = _ltc268x_spi_write(dev, reg, (uint16_t)range << 8);
 
 	if (ret < 0)
 		return ret;
@@ -444,9 +444,9 @@ int32_t ltc268x_init(struct ltc268x_dev **device,
 
 	for (channel = 0; channel < dev->num_channels; channel++) {
 		/* Setup channel span */
-		// ret = ltc268x_set_span(dev, channel, init_param.crt_range[channel]);
-		// if (ret < 0)
-		// 	goto error;
+		ret = ltc268x_set_span(dev, channel, init_param.crt_range[channel]);
+		if (ret < 0)
+			goto error;
 
 		// /* Set dither phase */
 		// ret = ltc268x_set_dither_phase(dev, channel, init_param.dither_phase[channel]);
