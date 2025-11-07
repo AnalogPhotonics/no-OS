@@ -57,6 +57,7 @@ static int32_t _ltc268x_spi_write(struct ltc268x_dev *dev, uint8_t reg,
 {
 	uint64_t buf;
 	int32_t ret;
+	uint64_t busy; 
 
 	if (!dev)
 		return -ENODEV;
@@ -69,6 +70,12 @@ static int32_t _ltc268x_spi_write(struct ltc268x_dev *dev, uint8_t reg,
 	buf |= ((uint64_t)reg) << 16;
 
 	ret = ip_reg_write((reg_map_t*)dev->extra, LASER_HEATER_DIRECT_ACCESS_REG_OFFSET_LTC2688_DIRECT_WRITE, &buf);
+
+	busy = 1;
+	while (busy)
+	{
+		ip_reg_read((reg_map_t*)dev->extra, LASER_HEATER_DIRECT_ACCESS_REG_OFFSET_DIRECT_WRITE_BUSY, &busy);
+	}
 
 	return ret;
 }
