@@ -221,7 +221,7 @@ int32_t ltc268x_set_span(struct ltc268x_dev *dev,
 		return -ENOENT;
 
 	reg = (1U << 4) | channel;
-	ret = _ltc268x_spi_write(dev, reg, (uint16_t)range << 8);
+	ret = _ltc268x_spi_write(dev, reg, (uint16_t)range);
 
 	if (ret < 0)
 		return ret;
