@@ -46,7 +46,8 @@
 
 #define XPS_TYPE_WRITE		0x1
 #define XPS_TYPE_READ		0x2
-#define XSP_DEFAULT_SR_VALUE	0xA5
+#define XSP_DEFAULT_SR_VALUE0	0xA5
+#define XSP_DEFAULT_SR_VALUE1   0x25
 #define XSP_DUMMY_DATA		0xFF
 
 /*
@@ -130,7 +131,7 @@ static int32_t _xil_spi_init_dev(struct xspi_desc *xdesc)
 
 	/* Check if success reset */
 	val = _read(xdesc, XSP_SR_OFFSET);
-	if (val != XSP_DEFAULT_SR_VALUE)
+	if (val != XSP_DEFAULT_SR_VALUE0 && val != XSP_DEFAULT_SR_VALUE1)
 		return -ENODEV;
 
 	/* Disable interrupts. Drivers only works with pooled mode */
