@@ -379,6 +379,7 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 {
 	struct xil_i2c_desc	*xdesc;
 	int32_t		ret;
+	uint32_t status; 
 
 	xdesc = desc->extra;
 
@@ -432,6 +433,18 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 		/* Intended fallthrough */
 error:
 	default:
+
+		status = XIicPs_ReadReg(((XIicPs *)xdesc->instance)->Config.BaseAddress, XIICPS_ISR_OFFSET);
+
+		/* if NACK, clear NACK flag and reset TX buffer */
+		if (status & XIICPS_IXR_NACK_MASK) 
+		{
+			// 1. Clear NACK interrupt
+			XIicPs_WriteReg(((XIicPs *)xdesc->instance)->Config.BaseAddress, XIICPS_ISR_OFFSET, XIICPS_IXR_NACK_MASK);
+
+			// 2. Abort clears FIFOs and internal state
+			XIicPs_Abort((XIicPs *)xdesc->instance);
+		}
 
 		return -1;
 	}
