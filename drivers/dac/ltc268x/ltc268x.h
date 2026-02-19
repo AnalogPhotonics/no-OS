@@ -139,6 +139,7 @@ struct ltc268x_dev {
 	enum ltc268x_dither_period	dither_period[16];
 	enum ltc268x_clk_input		clk_input[16];
 	enum ltc268x_a_b_register	reg_select[16];
+	uint8_t direct_access_sel; // arg just for direct access implementation, communicates which ltc2688 to use on PCB
 	void *extra; // implementation specific
 };
 
@@ -154,6 +155,7 @@ struct ltc268x_init_param {
 	enum ltc268x_dither_period	dither_period[16];
 	enum ltc268x_clk_input		clk_input[16];
 	enum ltc268x_a_b_register	reg_select[16];
+	uint8_t direct_access_sel; // arg just for direct access implementation, communicates which ltc2688 to use on PCB
 	void *extra; // implementation specific
 };
 int32_t ltc268x_set_pwr_dac(struct ltc268x_dev *dev, uint16_t setting);

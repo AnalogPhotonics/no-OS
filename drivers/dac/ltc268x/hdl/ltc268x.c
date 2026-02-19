@@ -68,6 +68,7 @@ static int32_t _ltc268x_spi_write(struct ltc268x_dev *dev, uint8_t reg,
 
 	buf = data;
 	buf |= ((uint64_t)reg) << 16;
+	buf |= dev->direct_access_sel << 24; 
 
 	ret = ip_reg_write((reg_map_t*)dev->extra, LASER_HEATER_DIRECT_ACCESS_REG_OFFSET_LTC2688_DIRECT_WRITE, &buf);
 
@@ -433,6 +434,8 @@ int32_t ltc268x_init(struct ltc268x_dev **device,
 	dev->extra = init_param.extra; // register map
 
 	dev->dev_id = init_param.dev_id;
+	dev->direct_access_sel = init_param.direct_access_sel;
+
 	if (init_param.dev_id == LTC2686) {
 		dev->num_channels = 8;
 	} else if (init_param.dev_id == LTC2688) {
