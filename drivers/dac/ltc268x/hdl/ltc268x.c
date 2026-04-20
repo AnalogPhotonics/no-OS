@@ -33,10 +33,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "ip_regs.h"
-#include "laser_heater_direct_access_gen4_reg_map.h"
-
-#include "ltc268x.h" /* LTC268X definitions. */
+#include <dac/ltc268x/ltc268x.h> /* LTC268X definitions. */
 
 static const struct ltc268x_span_tbl ltc268x_span_tbl[] = {
 	[LTC268X_VOLTAGE_RANGE_0V_5V] = {0, 5},
@@ -70,13 +67,7 @@ static int32_t _ltc268x_spi_write(struct ltc268x_dev *dev, uint8_t reg,
 	buf |= ((uint64_t)reg) << 16;
 	buf |= dev->direct_access_sel << 24; 
 
-	ret = ip_reg_write((reg_map_t*)dev->extra, LASER_HEATER_DIRECT_ACCESS_REG_OFFSET_LTC2688_DIRECT_WRITE, &buf);
-
-	busy = 1;
-	while (busy)
-	{
-		ip_reg_read((reg_map_t*)dev->extra, LASER_HEATER_DIRECT_ACCESS_REG_OFFSET_DIRECT_WRITE_BUSY, &busy);
-	}
+	ret = dev->buffer_writer(dev->base_addr, buf); // Configurable function that implements the SPI write
 
 	return ret;
 }
@@ -431,10 +422,11 @@ int32_t ltc268x_init(struct ltc268x_dev **device,
 	if (!dev)
 		return -ENOMEM;
 
-	dev->extra = init_param.extra; // register map
 
 	dev->dev_id = init_param.dev_id;
 	dev->direct_access_sel = init_param.direct_access_sel;
+	dev->base_addr = init_param.base_addr;
+	dev->buffer_writer = init_param.buffer_writer;
 
 	if (init_param.dev_id == LTC2686) {
 		dev->num_channels = 8;
