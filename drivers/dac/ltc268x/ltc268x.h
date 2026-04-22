@@ -143,7 +143,7 @@ struct ltc268x_dev {
 	// Custom
 	uint8_t direct_access_sel; // arg just for direct access implementation, communicates which ltc2688 to use on PCB
 	uint32_t base_addr; // Base address of laser heater direct access
-	int32_t (*buffer_writer) (uint32_t baseaddr, uint16_t data);
+	int32_t (*buffer_writer) (uint32_t baseaddr, uint32_t data);
 };
 
 struct ltc268x_init_param {
@@ -162,7 +162,7 @@ struct ltc268x_init_param {
 	// Custom 
 	uint8_t direct_access_sel; // arg just for direct access implementation, communicates which ltc2688 to use on PCB
 	uint32_t base_addr; // Base address of laser heater direct access
-	int32_t (*buffer_writer) (uint32_t baseaddr, uint16_t data);
+	int32_t (*buffer_writer) (uint32_t baseaddr, uint32_t data);
 };
 int32_t ltc268x_set_pwr_dac(struct ltc268x_dev *dev, uint16_t setting);
 int32_t ltc268x_set_dither_toggle(struct ltc268x_dev *dev, uint16_t setting);

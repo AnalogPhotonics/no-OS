@@ -31,8 +31,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *******************************************************************************/
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <no_os_alloc.h>
 #include <dac/ltc268x/ltc268x.h> /* LTC268X definitions. */
 
 static const struct ltc268x_span_tbl ltc268x_span_tbl[] = {
@@ -52,9 +52,8 @@ static const struct ltc268x_span_tbl ltc268x_span_tbl[] = {
 static int32_t _ltc268x_spi_write(struct ltc268x_dev *dev, uint8_t reg,
 				  uint16_t data)
 {
-	uint64_t buf;
+	uint32_t buf;
 	int32_t ret;
-	uint64_t busy; 
 
 	if (!dev)
 		return -ENODEV;
@@ -64,8 +63,8 @@ static int32_t _ltc268x_spi_write(struct ltc268x_dev *dev, uint8_t reg,
 	// buf[2] = data & 0x00FF;
 
 	buf = data;
-	buf |= ((uint64_t)reg) << 16;
-	buf |= dev->direct_access_sel << 24; 
+	buf |= ((uint32_t)reg) << 16;
+	buf |= ((uint32_t)(dev->direct_access_sel)) << 24; 
 
 	ret = dev->buffer_writer(dev->base_addr, buf); // Configurable function that implements the SPI write
 
@@ -152,8 +151,8 @@ int32_t ltc268x_set_pwr_dac(struct ltc268x_dev *dev, uint16_t setting)
  *		    Accepted values: LTC268X_DITH_EN(x) | LTC268X_DITH_EN(y) | ...
  * @return 0 in case of success, negative error code otherwise.
  */
-int32_t ltc268x_set_dither_toggle(struct ltc268x_dev *dev, uint16_t setting)
-{
+// int32_t ltc268x_set_dither_toggle(struct ltc268x_dev *dev, uint16_t setting)
+// {
 	// int32_t ret;
 
 	// ret = _ltc268x_spi_write(dev, LTC268X_CMD_TOGGLE_DITHER_EN_REG,
@@ -164,7 +163,7 @@ int32_t ltc268x_set_dither_toggle(struct ltc268x_dev *dev, uint16_t setting)
 	// dev->dither_toggle_en = setting;
 
 	// return 0;
-}
+// }
 
 /**
  * Set channel to dither mode.
@@ -173,9 +172,9 @@ int32_t ltc268x_set_dither_toggle(struct ltc268x_dev *dev, uint16_t setting)
  * @param en - enable or disable dither mode
  * @return 0 in case of success, negative error code otherwise.
  */
-int32_t ltc268x_set_dither_mode(struct ltc268x_dev *dev, uint8_t channel,
-				bool en)
-{
+// int32_t ltc268x_set_dither_mode(struct ltc268x_dev *dev, uint8_t channel,
+				// bool en)
+// {
 	// uint16_t val = 0;
 	// int32_t ret;
 
@@ -194,7 +193,7 @@ int32_t ltc268x_set_dither_mode(struct ltc268x_dev *dev, uint8_t channel,
 	// dev->dither_mode[channel] = en;
 
 	// return 0;
-}
+// }
 
 /**
  * Set channel span.
@@ -230,9 +229,9 @@ int32_t ltc268x_set_span(struct ltc268x_dev *dev,
  * @param phase - Dither phase.
  * @return 0 in case of success, negative error code otherwise.
  */
-int32_t ltc268x_set_dither_phase(struct ltc268x_dev *dev,
-				 uint8_t channel, enum  ltc268x_dither_phase phase)
-{
+// int32_t ltc268x_set_dither_phase(struct ltc268x_dev *dev,
+				//  uint8_t channel, enum  ltc268x_dither_phase phase)
+// {
 	// int32_t ret;
 
 	// if (channel >= dev->num_channels)
@@ -247,7 +246,7 @@ int32_t ltc268x_set_dither_phase(struct ltc268x_dev *dev,
 	// dev->dither_phase[channel] = phase;
 
 	// return 0;
-}
+// }
 
 /**
  * Set channel dither period.
@@ -256,9 +255,9 @@ int32_t ltc268x_set_dither_phase(struct ltc268x_dev *dev,
  * @param period - Dither period.
  * @return 0 in case of success, negative error code otherwise.
  */
-int32_t ltc268x_set_dither_period(struct ltc268x_dev *dev,
-				  uint8_t channel, enum  ltc268x_dither_period period)
-{
+// int32_t ltc268x_set_dither_period(struct ltc268x_dev *dev,
+				//   uint8_t channel, enum  ltc268x_dither_period period)
+// {
 	// int32_t ret;
 
 	// if (channel >= dev->num_channels)
@@ -273,7 +272,7 @@ int32_t ltc268x_set_dither_period(struct ltc268x_dev *dev,
 	// dev->dither_period[channel] = period;
 
 	// return 0;
-}
+// }
 
 /**
  * Select register A or B for value.
