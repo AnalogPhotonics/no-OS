@@ -437,6 +437,96 @@ error:
 		status = XIicPs_ReadReg(((XIicPs *)xdesc->instance)->Config.BaseAddress, XIICPS_ISR_OFFSET);
 
 		/* if NACK, clear NACK flag and reset TX buffer */
+		if (status & XIICPS_IXR_NACK_MASK)
+		{
+			// 1. Clear NACK interrupt
+			XIicPs_WriteReg(((XIicPs *)xdesc->instance)->Config.BaseAddress, XIICPS_ISR_OFFSET, XIICPS_IXR_NACK_MASK);
+
+			// 2. Abort clears FIFOs and internal state
+			XIicPs_Abort((XIicPs *)xdesc->instance);
+		}
+
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Writes lots of data to a slave device.
+ * @param desc - The I2C descriptor.
+ * @param data - Buffer that stores the transmission data.
+ * @param bytes_number - Number of bytes to write.
+ * @param stop_bit - Stop condition control.
+ *                   Example: 0 - A stop condition will not be generated;
+ *                            1 - A stop condition will be generated.
+ * @return 0 in case of success, -1 otherwise.
+ */
+int32_t xil_i2c_write_big(struct no_os_i2c_desc *desc,
+		      uint8_t *data,
+		      uint16_t bytes_number,
+		      uint8_t stop_bit)
+{
+	struct xil_i2c_desc	*xdesc;
+	int32_t		ret;
+	uint32_t status;
+
+	xdesc = desc->extra;
+
+	switch (xdesc->type) {
+	case IIC_PL:
+#ifdef XIIC_H
+		ret = xil_i2c_set_transmission_config(desc);
+		if (ret != 0)
+			return -1;
+
+		XIic_Send(((XIic*)xdesc->instance)->BaseAddress,
+			  desc->slave_address,
+			  data,
+			  bytes_number,
+			  stop_bit ? XIIC_STOP : XIIC_REPEATED_START);
+		break;
+#endif
+		goto error;
+	case IIC_PS:
+#ifdef XIICPS_H
+		ret = xil_i2c_set_transmission_config(desc);
+		if (ret != 0)
+			return -1;
+
+		if (stop_bit)
+		{
+			ret = XIicPs_ClearOptions(xdesc->instance, XIICPS_REP_START_OPTION);
+		}
+		else
+		{
+			ret = XIicPs_SetOptions(xdesc->instance, XIICPS_REP_START_OPTION);
+		}
+
+		if (ret != 0)
+			goto error;
+
+		ret = XIicPs_MasterSendPolled(xdesc->instance,
+				  data,
+				  bytes_number,
+				  desc->slave_address);
+		if (ret != 0)
+			goto error;
+
+		if (stop_bit)
+		{
+			while (XIicPs_BusIsBusy(xdesc->instance));
+		}
+
+		break;
+#endif
+		/* Intended fallthrough */
+error:
+	default:
+
+		status = XIicPs_ReadReg(((XIicPs *)xdesc->instance)->Config.BaseAddress, XIICPS_ISR_OFFSET);
+
+		/* if NACK, clear NACK flag and reset TX buffer */
 		if (status & XIICPS_IXR_NACK_MASK) 
 		{
 			// 1. Clear NACK interrupt
