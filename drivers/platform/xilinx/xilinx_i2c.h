@@ -91,10 +91,15 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc, uint8_t *data,
 		      uint8_t bytes_number, uint8_t stop_bit);
 
 int32_t xil_i2c_write_big(struct no_os_i2c_desc *desc, uint8_t *data,
-		      uint16_t bytes_number, uint8_t stop_bit);
+		      int32_t bytes_number, uint8_t stop_bit);
 
 /* I2C Read data. */
 int32_t xil_i2c_read(struct no_os_i2c_desc *desc, uint8_t *data,
 		     uint8_t bytes_number, uint8_t stop_bit);
+
+int32_t xil_i2c_read_big(struct no_os_i2c_desc *desc,
+		     uint8_t *data,
+		     int32_t bytes_number,
+		     uint8_t stop_bit);
 
 #endif // XILINX_I2C_H_

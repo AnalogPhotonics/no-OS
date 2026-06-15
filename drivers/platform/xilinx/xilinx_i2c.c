@@ -464,7 +464,7 @@ error:
  */
 int32_t xil_i2c_write_big(struct no_os_i2c_desc *desc,
 		      uint8_t *data,
-		      uint16_t bytes_number,
+		      int32_t bytes_number,
 		      uint8_t stop_bit)
 {
 	struct xil_i2c_desc	*xdesc;
@@ -555,6 +555,87 @@ error:
 int32_t xil_i2c_read(struct no_os_i2c_desc *desc,
 		     uint8_t *data,
 		     uint8_t bytes_number,
+		     uint8_t stop_bit)
+{
+	struct xil_i2c_desc	*xdesc;
+	int32_t		ret;
+
+	xdesc = desc->extra;
+
+	switch (xdesc->type) {
+	case IIC_PL:
+#ifdef XIIC_H
+		ret = xil_i2c_set_transmission_config(desc);
+		if (ret != 0)
+			return -1;
+
+		ret = XIic_Recv(((XIic*)xdesc->instance)->BaseAddress,
+				desc->slave_address,
+				data,
+				bytes_number,
+				stop_bit ? XIIC_STOP : XIIC_REPEATED_START);
+		if (ret != bytes_number)
+			goto error;
+
+		break;
+#endif
+		goto error;
+	case IIC_PS:
+#ifdef XIICPS_H
+		ret = xil_i2c_set_transmission_config(desc);
+		if (ret != 0)
+			return -1;
+
+		if (stop_bit)
+		{
+			ret = XIicPs_ClearOptions(xdesc->instance, XIICPS_REP_START_OPTION);
+		}
+		else
+		{
+			ret = XIicPs_SetOptions(xdesc->instance, XIICPS_REP_START_OPTION);
+		}
+		
+		if (ret != 0)
+			goto error;
+
+		ret = XIicPs_MasterRecvPolled(xdesc->instance,
+				  data,
+				  bytes_number,
+				  desc->slave_address);
+		if (ret != 0)
+			goto error;
+
+		if (stop_bit)
+		{
+			while (XIicPs_BusIsBusy(xdesc->instance));
+		}
+
+		break;
+#endif
+		/* Intended fallthrough */
+error:
+	default:
+		return -1;
+
+		break;
+	}
+
+	return 0;
+}
+
+/*
+ * @brief Read data from a slave device.
+ * @param desc - The I2C descriptor.
+ * @param data - Buffer that will store the received data.
+ * @param bytes_number - Number of bytes to read.
+ * @param stop_bit - Stop condition control.
+ *                   Example: 0 - A stop condition will not be generated;
+ *                            1 - A stop condition will be generated.
+ * @return 0 in case of success, -1 otherwise.
+ */
+int32_t xil_i2c_read_big(struct no_os_i2c_desc *desc,
+		     uint8_t *data,
+		     int32_t bytes_number,
 		     uint8_t stop_bit)
 {
 	struct xil_i2c_desc	*xdesc;
