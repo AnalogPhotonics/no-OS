@@ -547,6 +547,8 @@ error:
 
 			// 2. Abort clears FIFOs and internal state
 			XIicPs_Abort((XIicPs *)xdesc->instance);
+
+			ps_last_bitrate = 0; // Abort clears saved timing configuration, this forces reload
 		}
 
 		return -1;
