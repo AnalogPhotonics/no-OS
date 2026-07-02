@@ -372,6 +372,18 @@ error:
  *                            1 - A stop condition will be generated.
  * @return 0 in case of success, -1 otherwise.
  */
+
+void xil_i2c_print(struct xil_i2c_desc	*xdesc, char prefix[]) {
+	UINTPTR base_address = ((XIicPs *)xdesc->instance)->Config.BaseAddress;
+	u16 cr = XIicPs_ReadReg(base_address, XIICPS_CR_OFFSET);
+	u16 sr = XIicPs_ReadReg(base_address, XIICPS_SR_OFFSET);
+	u16 addr = XIicPs_ReadReg(base_address, XIICPS_ADDR_OFFSET);
+	u16 data = XIicPs_ReadReg(base_address, XIICPS_DATA_OFFSET);
+	u16 isr = XIicPs_ReadReg(base_address, XIICPS_ISR_OFFSET);
+	u8 size = XIicPs_ReadReg(base_address, XIICPS_TRANS_SIZE_OFFSET);
+	xil_printf("%20s -- CR: %4X, SR: %4X, ADDR: %4X, DATA: %4X, ISR: %4X, SIZE: %2X\n", prefix, cr, sr, addr, data, isr, size);
+}
+
 int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 		      uint8_t *data,
 		      uint8_t bytes_number,
@@ -412,7 +424,6 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 		{
 			ret = XIicPs_SetOptions(xdesc->instance, XIICPS_REP_START_OPTION);
 		}
-
 		if (ret != 0)
 			goto error;
 
@@ -444,6 +455,8 @@ error:
 
 			// 2. Abort clears FIFOs and internal state
 			XIicPs_Abort((XIicPs *)xdesc->instance);
+
+			ps_last_bitrate = 0; // Abort clears saved timing configuration, this forces reload
 		}
 
 		return -1;
