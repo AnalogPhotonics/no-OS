@@ -41,6 +41,7 @@
 #include <xiicps.h>
 #endif
 
+#include "no_os_delay.h"
 #include "no_os_error.h"
 #include "no_os_i2c.h"
 #include "xilinx_i2c.h"
@@ -71,6 +72,13 @@ struct inst_table_item {
 #ifdef XPAR_XIICPS_NUM_INSTANCES
 /** Save the current state of the bitrate to not change it each time */
 static uint32_t ps_last_bitrate = 0;
+
+/** Upper bound on the wait for a stop condition to complete. A slave holding
+ *  SDA low prevents the stop from ever being generated, so the bus busy poll
+ *  needs a bound or it spins for good. A full 16 byte transfer at 400 kHz is
+ *  about 400 us, so this is ample; keeping it well under the callers' own
+ *  command timeouts matters more than being generous */
+#define XIL_I2C_PS_IDLE_TIMEOUT_US	5000U
 #endif
 
 /**
@@ -123,6 +131,105 @@ static int32_t xil_i2c_set_transmission_config(struct no_os_i2c_desc *desc)
 				return -1;
 			ps_last_bitrate = desc->max_speed_hz;
 		}
+		break;
+#endif
+		return -1;
+	default:
+
+		return -1;
+	}
+
+	return 0;
+}
+
+#ifdef XIICPS_H
+/**
+ * @brief Wait for the PS I2C bus to go idle after a stop condition.
+ * @param xdesc - Platform descriptor of the I2C device
+ * @return 0 in case of success, -1 if the bus never went idle.
+ */
+static int32_t xil_i2c_ps_wait_bus_idle(struct xil_i2c_desc *xdesc)
+{
+	struct no_os_time start = no_os_get_time();
+	uint64_t start_us = ((uint64_t)start.s * 1000000U) + start.us;
+	struct no_os_time now;
+	uint64_t now_us;
+
+	/* Bounded on elapsed time rather than on a loop count, so that the cost
+	 * of a single iteration cannot stretch the timeout. This spins rather
+	 * than yielding on purpose: the transfer functions are also called
+	 * before the scheduler starts */
+	while (XIicPs_BusIsBusy(xdesc->instance)) {
+		now = no_os_get_time();
+		now_us = ((uint64_t)now.s * 1000000U) + now.us;
+
+		if ((now_us - start_us) > XIL_I2C_PS_IDLE_TIMEOUT_US)
+			return -1;
+	}
+
+	return 0;
+}
+#endif
+
+/**
+ * @brief Return the I2C core to a known good state after a failed transfer.
+ *
+ * Any error leaves the core in an indeterminate state: error flags latched in
+ * the interrupt status register, dirty FIFOs, a non-zero transfer size and,
+ * for a transfer that was using a repeated start, the hold bit still asserted,
+ * which keeps SCL held low and wedges the bus for every later transfer.
+ * @param desc - Descriptor of the I2C device
+ * @return 0 in case of success, -1 otherwise.
+ */
+static int32_t xil_i2c_recover(struct no_os_i2c_desc *desc)
+{
+	struct xil_i2c_desc *xil_i2c_desc = desc->extra;
+#ifdef XIICPS_H
+	UINTPTR base_address;
+#endif
+
+	switch (xil_i2c_desc->type) {
+	case IIC_PL:
+#ifdef XIIC_H
+		/* No teardown implemented for the PL core */
+		break;
+#endif
+		return -1;
+	case IIC_PS:
+#ifdef XIICPS_H
+		base_address = ((XIicPs *)xil_i2c_desc->instance)
+			       ->Config.BaseAddress;
+
+		/* Clear the driver's own repeated start flag, or the next
+		 * transfer on this descriptor re-asserts hold and never
+		 * releases it. This has to happen before the abort below:
+		 * XIicPs_ClearOptions() refreshes its cached options from the
+		 * control register, and once abort has zeroed that register the
+		 * cleared NEA bit makes the cache claim 10-bit addressing */
+		XIicPs_ClearOptions(xil_i2c_desc->instance,
+				    XIICPS_REP_START_OPTION);
+
+		/* Clear every latched error, not just NACK. An externally held
+		 * SDA line shows up as arbitration lost, and the FIFO overflow
+		 * and underflow errors are reachable too */
+		XIicPs_WriteReg(base_address, XIICPS_ISR_OFFSET,
+				XIICPS_IXR_ALL_INTR_MASK);
+
+		/* Clears the FIFOs, the transfer size register and the whole
+		 * control register */
+		XIicPs_Abort((XIicPs *)xil_i2c_desc->instance);
+
+		/* Abort is documented to clear this through the clear FIFO bit,
+		 * but a non-zero transfer size makes XIicPs_SetSClk() fail with
+		 * XST_DEVICE_IS_STARTED, which would deadlock the reload below
+		 * on this and every later transfer */
+		XIicPs_WriteReg(base_address, XIICPS_TRANS_SIZE_OFFSET, 0);
+
+		/* Abort reset the control register, and with it the clock
+		 * divisors. Invalidate the cached rate so the next transfer
+		 * reprograms them */
+		ps_last_bitrate = 0;
+
 		break;
 #endif
 		return -1;
@@ -391,7 +498,6 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 {
 	struct xil_i2c_desc	*xdesc;
 	int32_t		ret;
-	uint32_t status; 
 
 	xdesc = desc->extra;
 
@@ -400,7 +506,7 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 #ifdef XIIC_H
 		ret = xil_i2c_set_transmission_config(desc);
 		if (ret != 0)
-			return -1;
+			goto error;
 
 		XIic_Send(((XIic*)xdesc->instance)->BaseAddress,
 			  desc->slave_address,
@@ -414,7 +520,7 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 #ifdef XIICPS_H
 		ret = xil_i2c_set_transmission_config(desc);
 		if (ret != 0)
-			return -1;
+			goto error;
 
 		if (stop_bit)
 		{
@@ -436,7 +542,9 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 
 		if (stop_bit)
 		{
-			while (XIicPs_BusIsBusy(xdesc->instance));
+			ret = xil_i2c_ps_wait_bus_idle(xdesc);
+			if (ret != 0)
+				goto error;
 		}
 
 		break;
@@ -445,19 +553,9 @@ int32_t xil_i2c_write(struct no_os_i2c_desc *desc,
 error:
 	default:
 
-		status = XIicPs_ReadReg(((XIicPs *)xdesc->instance)->Config.BaseAddress, XIICPS_ISR_OFFSET);
-
-		/* if NACK, clear NACK flag and reset TX buffer */
-		if (status & XIICPS_IXR_NACK_MASK)
-		{
-			// 1. Clear NACK interrupt
-			XIicPs_WriteReg(((XIicPs *)xdesc->instance)->Config.BaseAddress, XIICPS_ISR_OFFSET, XIICPS_IXR_NACK_MASK);
-
-			// 2. Abort clears FIFOs and internal state
-			XIicPs_Abort((XIicPs *)xdesc->instance);
-
-			ps_last_bitrate = 0; // Abort clears saved timing configuration, this forces reload
-		}
+		/* Any transfer error, not only a NACK, can leave the core in a
+		 * state that breaks every later transfer */
+		xil_i2c_recover(desc);
 
 		return -1;
 	}
@@ -482,7 +580,6 @@ int32_t xil_i2c_write_big(struct no_os_i2c_desc *desc,
 {
 	struct xil_i2c_desc	*xdesc;
 	int32_t		ret;
-	uint32_t status;
 
 	xdesc = desc->extra;
 
@@ -491,7 +588,7 @@ int32_t xil_i2c_write_big(struct no_os_i2c_desc *desc,
 #ifdef XIIC_H
 		ret = xil_i2c_set_transmission_config(desc);
 		if (ret != 0)
-			return -1;
+			goto error;
 
 		XIic_Send(((XIic*)xdesc->instance)->BaseAddress,
 			  desc->slave_address,
@@ -505,7 +602,7 @@ int32_t xil_i2c_write_big(struct no_os_i2c_desc *desc,
 #ifdef XIICPS_H
 		ret = xil_i2c_set_transmission_config(desc);
 		if (ret != 0)
-			return -1;
+			goto error;
 
 		if (stop_bit)
 		{
@@ -528,7 +625,9 @@ int32_t xil_i2c_write_big(struct no_os_i2c_desc *desc,
 
 		if (stop_bit)
 		{
-			while (XIicPs_BusIsBusy(xdesc->instance));
+			ret = xil_i2c_ps_wait_bus_idle(xdesc);
+			if (ret != 0)
+				goto error;
 		}
 
 		break;
@@ -537,19 +636,9 @@ int32_t xil_i2c_write_big(struct no_os_i2c_desc *desc,
 error:
 	default:
 
-		status = XIicPs_ReadReg(((XIicPs *)xdesc->instance)->Config.BaseAddress, XIICPS_ISR_OFFSET);
-
-		/* if NACK, clear NACK flag and reset TX buffer */
-		if (status & XIICPS_IXR_NACK_MASK) 
-		{
-			// 1. Clear NACK interrupt
-			XIicPs_WriteReg(((XIicPs *)xdesc->instance)->Config.BaseAddress, XIICPS_ISR_OFFSET, XIICPS_IXR_NACK_MASK);
-
-			// 2. Abort clears FIFOs and internal state
-			XIicPs_Abort((XIicPs *)xdesc->instance);
-
-			ps_last_bitrate = 0; // Abort clears saved timing configuration, this forces reload
-		}
+		/* Any transfer error, not only a NACK, can leave the core in a
+		 * state that breaks every later transfer */
+		xil_i2c_recover(desc);
 
 		return -1;
 	}
@@ -582,7 +671,7 @@ int32_t xil_i2c_read(struct no_os_i2c_desc *desc,
 #ifdef XIIC_H
 		ret = xil_i2c_set_transmission_config(desc);
 		if (ret != 0)
-			return -1;
+			goto error;
 
 		ret = XIic_Recv(((XIic*)xdesc->instance)->BaseAddress,
 				desc->slave_address,
@@ -599,7 +688,7 @@ int32_t xil_i2c_read(struct no_os_i2c_desc *desc,
 #ifdef XIICPS_H
 		ret = xil_i2c_set_transmission_config(desc);
 		if (ret != 0)
-			return -1;
+			goto error;
 
 		if (stop_bit)
 		{
@@ -622,7 +711,9 @@ int32_t xil_i2c_read(struct no_os_i2c_desc *desc,
 
 		if (stop_bit)
 		{
-			while (XIicPs_BusIsBusy(xdesc->instance));
+			ret = xil_i2c_ps_wait_bus_idle(xdesc);
+			if (ret != 0)
+				goto error;
 		}
 
 		break;
@@ -630,6 +721,11 @@ int32_t xil_i2c_read(struct no_os_i2c_desc *desc,
 		/* Intended fallthrough */
 error:
 	default:
+
+		/* Any transfer error, not only a NACK, can leave the core in a
+		 * state that breaks every later transfer */
+		xil_i2c_recover(desc);
+
 		return -1;
 
 		break;
@@ -663,7 +759,7 @@ int32_t xil_i2c_read_big(struct no_os_i2c_desc *desc,
 #ifdef XIIC_H
 		ret = xil_i2c_set_transmission_config(desc);
 		if (ret != 0)
-			return -1;
+			goto error;
 
 		ret = XIic_Recv(((XIic*)xdesc->instance)->BaseAddress,
 				desc->slave_address,
@@ -680,7 +776,7 @@ int32_t xil_i2c_read_big(struct no_os_i2c_desc *desc,
 #ifdef XIICPS_H
 		ret = xil_i2c_set_transmission_config(desc);
 		if (ret != 0)
-			return -1;
+			goto error;
 
 		if (stop_bit)
 		{
@@ -703,7 +799,9 @@ int32_t xil_i2c_read_big(struct no_os_i2c_desc *desc,
 
 		if (stop_bit)
 		{
-			while (XIicPs_BusIsBusy(xdesc->instance));
+			ret = xil_i2c_ps_wait_bus_idle(xdesc);
+			if (ret != 0)
+				goto error;
 		}
 
 		break;
@@ -711,6 +809,11 @@ int32_t xil_i2c_read_big(struct no_os_i2c_desc *desc,
 		/* Intended fallthrough */
 error:
 	default:
+
+		/* Any transfer error, not only a NACK, can leave the core in a
+		 * state that breaks every later transfer */
+		xil_i2c_recover(desc);
+
 		return -1;
 
 		break;
