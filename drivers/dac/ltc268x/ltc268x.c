@@ -31,6 +31,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *******************************************************************************/
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "no_os_error.h"
@@ -368,7 +369,7 @@ int32_t ltc268x_software_reset(struct ltc268x_dev *dev)
 int32_t ltc268x_set_voltage(struct ltc268x_dev *dev, uint8_t channel,
 			    float voltage)
 {
-	uint16_t offset, gain, code;
+	uint16_t offset, gain;
 	int32_t range_offset, v_ref, ret;
 
 	/* Get the offset, gain and range of the selected channel. */
@@ -386,11 +387,11 @@ int32_t ltc268x_set_voltage(struct ltc268x_dev *dev, uint8_t channel,
 		ltc268x_span_tbl[dev->crt_range[channel]].min;
 
 	/* Compute the binary code from the value(mA) provided by user. */
-	code = (uint32_t)((voltage - range_offset) * (1l << 16) / v_ref);
+	uint32_t code = (uint32_t)((voltage - range_offset) * (1l << 16) / v_ref);
 	if (code > 0xFFFF)
 		code = 0xFFFF;
 
-	dev->dac_code[channel] = code;
+	dev->dac_code[channel] = (uint16_t)code;
 
 	/* Write to the Data Register of the DAC. */
 	return _ltc268x_spi_write(dev,  LTC268X_CMD_CH_CODE_UPDATE(channel,
